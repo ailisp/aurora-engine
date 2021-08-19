@@ -3,13 +3,13 @@ use crate::types::Wei;
 use rlp::{Decodable, DecoderError, Encodable, Rlp, RlpStream};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct LegacyEthTransaction {
+pub struct TransactionLegacy {
     /// A monotonically increasing transaction counter for this sender
     pub nonce: U256,
     /// The fee the sender pays per unit of gas
     pub gas_price: U256,
     /// The maximum amount of gas units consumed by the transaction
-    pub gas: U256,
+    pub gas_limit: U256,
     /// The receiving address (`None` for the zero address)
     pub to: Option<Address>,
     /// The amount of ETH to transfer
@@ -18,12 +18,12 @@ pub struct LegacyEthTransaction {
     pub data: Vec<u8>,
 }
 
-impl LegacyEthTransaction {
+impl TransactionLegacy {
     pub fn rlp_append_unsigned(&self, s: &mut RlpStream, chain_id: Option<u64>) {
         s.begin_list(if chain_id.is_none() { 6 } else { 9 });
         s.append(&self.nonce);
         s.append(&self.gas_price);
-        s.append(&self.gas);
+        s.append(&self.gas_limit);
         match self.to.as_ref() {
             None => s.append(&""),
             Some(address) => s.append(address),
@@ -37,22 +37,17 @@ impl LegacyEthTransaction {
         }
     }
 
-    #[inline]
-    pub fn intrinsic_gas(&self, config: &evm::Config) -> Option<u64> {
-        super::intrinsic_gas(self.to.is_none(), &self.data, &[], config)
-    }
-
     /// Returns self.gas as a u64, or None if self.gas > u64::MAX
     pub fn get_gas_limit(&self) -> Option<u64> {
         use crate::prelude::TryInto;
-        self.gas.try_into().ok()
+        self.gas_limit.try_into().ok()
     }
 }
 
 #[derive(Debug, Eq, PartialEq)]
 pub struct LegacyEthSignedTransaction {
     /// The unsigned transaction data
-    pub transaction: LegacyEthTransaction,
+    pub transaction: TransactionLegacy,
     /// The ECDSA recovery ID
     pub v: u64,
     /// The first ECDSA signature output
@@ -94,7 +89,7 @@ impl Encodable for LegacyEthSignedTransaction {
         s.begin_list(9);
         s.append(&self.transaction.nonce);
         s.append(&self.transaction.gas_price);
-        s.append(&self.transaction.gas);
+        s.append(&self.transaction.gas_limit);
         match self.transaction.to.as_ref() {
             None => s.append(&""),
             Some(address) => s.append(address),
@@ -122,10 +117,10 @@ impl Decodable for LegacyEthSignedTransaction {
         let r = rlp.val_at(7)?;
         let s = rlp.val_at(8)?;
         Ok(Self {
-            transaction: LegacyEthTransaction {
+            transaction: TransactionLegacy {
                 nonce,
                 gas_price,
-                gas,
+                gas_limit: gas,
                 to,
                 value,
                 data,
@@ -162,10 +157,10 @@ mod tests {
         assert_eq!(tx.chain_id(), Some(1));
         assert_eq!(
             tx.transaction,
-            LegacyEthTransaction {
+            TransactionLegacy {
                 nonce: U256::zero(),
                 gas_price: U256::from(234567897654321u128),
-                gas: U256::from(2000000u128),
+                gas_limit: U256::from(2000000u128),
                 to: Some(address_from_arr(
                     &hex::decode("F0109fC8DF283027b6285cc889F5aA624EaC1F55").unwrap()
                 )),

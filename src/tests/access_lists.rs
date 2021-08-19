@@ -1,7 +1,7 @@
 use crate::prelude::{H256, U256};
 use crate::test_utils;
-use crate::transaction::access_list::{self, AccessListEthTransaction, AccessTuple};
-use crate::transaction::EthTransaction;
+use crate::transaction::access_list::{self, AccessTuple, Transaction2930};
+use crate::transaction::EthTransactionKind;
 use crate::types::Wei;
 use std::convert::TryFrom;
 use std::iter;
@@ -14,7 +14,7 @@ fn test_access_list_tx_encoding_decoding() {
         &hex::decode("45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8").unwrap(),
     )
     .unwrap();
-    let transaction = AccessListEthTransaction {
+    let transaction = Transaction2930 {
         chain_id: 1,
         nonce: U256::zero(),
         gas_price: U256::from(0x0a),
@@ -44,9 +44,9 @@ fn test_access_list_tx_encoding_decoding() {
 
     assert_eq!(bytes, expected_bytes);
 
-    let decoded_tx = match EthTransaction::try_from(expected_bytes.as_slice()) {
-        Ok(EthTransaction::AccessList(tx)) => tx,
-        Ok(EthTransaction::Legacy(_)) => panic!("Unexpected transaction type"),
+    let decoded_tx = match EthTransactionKind::try_from(expected_bytes.as_slice()) {
+        Ok(EthTransactionKind::Transaction2930(tx)) => tx,
+        Ok(EthTransactionKind::Legacy(_)) => panic!("Unexpected transaction type"),
         Err(_) => panic!("Transaction parsing failed"),
     };
 

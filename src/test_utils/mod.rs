@@ -18,8 +18,8 @@ use crate::prelude::Address;
 use crate::storage;
 use crate::test_utils::solidity::{ContractConstructor, DeployedContract};
 use crate::transaction::{
-    access_list::{self, AccessListEthSignedTransaction, AccessListEthTransaction},
-    LegacyEthSignedTransaction, LegacyEthTransaction,
+    access_list::{self, SignedTransaction2930, Transaction2930},
+    LegacyEthSignedTransaction, TransactionLegacy,
 };
 use crate::types;
 use crate::types::AccountId;
@@ -212,7 +212,7 @@ impl AuroraRunner {
         trie.insert(ft_key, ft_value.try_to_vec().unwrap());
     }
 
-    pub fn submit_with_signer<F: FnOnce(U256) -> LegacyEthTransaction>(
+    pub fn submit_with_signer<F: FnOnce(U256) -> TransactionLegacy>(
         &mut self,
         signer: &mut Signer,
         make_tx: F,
@@ -225,7 +225,7 @@ impl AuroraRunner {
     pub fn submit_transaction(
         &mut self,
         account: &SecretKey,
-        transaction: LegacyEthTransaction,
+        transaction: TransactionLegacy,
     ) -> Result<SubmitResult, VMError> {
         let calling_account_id = "some-account.near".to_string();
         let signed_tx = sign_transaction(transaction, Some(self.chain_id), account);
@@ -243,7 +243,7 @@ impl AuroraRunner {
         }
     }
 
-    pub fn deploy_contract<F: FnOnce(&T) -> LegacyEthTransaction, T: Into<ContractConstructor>>(
+    pub fn deploy_contract<F: FnOnce(&T) -> TransactionLegacy, T: Into<ContractConstructor>>(
         &mut self,
         account: &SecretKey,
         constructor_tx: F,
@@ -378,11 +378,11 @@ pub(crate) fn deploy_evm() -> AuroraRunner {
     runner
 }
 
-pub(crate) fn transfer(to: Address, amount: types::Wei, nonce: U256) -> LegacyEthTransaction {
-    LegacyEthTransaction {
+pub(crate) fn transfer(to: Address, amount: types::Wei, nonce: U256) -> TransactionLegacy {
+    TransactionLegacy {
         nonce,
         gas_price: Default::default(),
-        gas: u64::MAX.into(),
+        gas_limit: u64::MAX.into(),
         to: Some(to),
         value: amount,
         data: Vec::new(),
@@ -397,10 +397,10 @@ pub(crate) fn create_eth_transaction(
     secret_key: &SecretKey,
 ) -> LegacyEthSignedTransaction {
     // nonce, gas_price and gas are not used by EVM contract currently
-    let tx = LegacyEthTransaction {
+    let tx = TransactionLegacy {
         nonce: Default::default(),
         gas_price: Default::default(),
-        gas: u64::MAX.into(),
+        gas_limit: u64::MAX.into(),
         to,
         value,
         data,
@@ -409,7 +409,7 @@ pub(crate) fn create_eth_transaction(
 }
 
 pub(crate) fn sign_transaction(
-    tx: LegacyEthTransaction,
+    tx: TransactionLegacy,
     chain_id: Option<u64>,
     secret_key: &SecretKey,
 ) -> LegacyEthSignedTransaction {
@@ -434,9 +434,9 @@ pub(crate) fn sign_transaction(
 }
 
 pub(crate) fn sign_access_list_transaction(
-    tx: AccessListEthTransaction,
+    tx: Transaction2930,
     secret_key: &SecretKey,
-) -> AccessListEthSignedTransaction {
+) -> SignedTransaction2930 {
     let mut rlp_stream = RlpStream::new();
     rlp_stream.append(&access_list::TYPE_BYTE);
     tx.rlp_append_unsigned(&mut rlp_stream);
@@ -447,7 +447,7 @@ pub(crate) fn sign_access_list_transaction(
     let r = U256::from_big_endian(&signature.r.b32());
     let s = U256::from_big_endian(&signature.s.b32());
 
-    AccessListEthSignedTransaction {
+    SignedTransaction2930 {
         transaction_data: tx,
         parity: recovery_id.serialize(),
         r,

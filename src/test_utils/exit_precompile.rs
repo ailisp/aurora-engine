@@ -1,7 +1,7 @@
 use crate::parameters::SubmitResult;
 use crate::prelude::{Address, U256};
 use crate::test_utils::{self, solidity, AuroraRunner, Signer};
-use crate::transaction::LegacyEthTransaction;
+use crate::transaction::TransactionLegacy;
 
 pub(crate) struct TesterConstructor(pub solidity::ContractConstructor);
 
@@ -14,7 +14,7 @@ impl TesterConstructor {
         ))
     }
 
-    pub fn deploy(&self, nonce: u64, token: Address) -> LegacyEthTransaction {
+    pub fn deploy(&self, nonce: u64, token: Address) -> TransactionLegacy {
         let data = self
             .0
             .abi
@@ -23,10 +23,10 @@ impl TesterConstructor {
             .encode_input(self.0.code.clone(), &[ethabi::Token::Address(token)])
             .unwrap();
 
-        LegacyEthTransaction {
+        TransactionLegacy {
             nonce: nonce.into(),
             gas_price: Default::default(),
-            gas: U256::from(DEPLOY_CONTRACT_GAS),
+            gas_limit: U256::from(DEPLOY_CONTRACT_GAS),
             to: None,
             value: Default::default(),
             data,
@@ -67,10 +67,10 @@ impl Tester {
             .encode_input(params)
             .unwrap();
 
-        let tx = LegacyEthTransaction {
+        let tx = TransactionLegacy {
             nonce: signer.use_nonce().into(),
             gas_price: Default::default(),
-            gas: U256::from(DEPLOY_CONTRACT_GAS),
+            gas_limit: U256::from(DEPLOY_CONTRACT_GAS),
             to: Some(self.contract.address),
             value: Default::default(),
             data,

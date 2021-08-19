@@ -53,7 +53,7 @@ fn erc20_mint_out_of_gas() {
     let mut mint_tx = contract.mint(dest_address, mint_amount.into(), nonce.into());
 
     // not enough gas to cover intrinsic cost
-    mint_tx.gas = (mint_tx.intrinsic_gas(&evm::Config::istanbul()).unwrap() - 1).into();
+    mint_tx.gas_limit = (mint_tx.intrinsic_gas(&evm::Config::istanbul()).unwrap() - 1).into();
     let outcome = runner.submit_transaction(&source_account.secret_key, mint_tx.clone());
     let error = outcome.unwrap_err();
     let error_message = format!("{:?}", error);
@@ -62,7 +62,7 @@ fn erc20_mint_out_of_gas() {
     // not enough gas to complete transaction
     const GAS_LIMIT: u64 = 67_000;
     const GAS_PRICE: u64 = 10;
-    mint_tx.gas = U256::from(GAS_LIMIT);
+    mint_tx.gas_limit = U256::from(GAS_LIMIT);
     mint_tx.gas_price = U256::from(GAS_PRICE); // also set non-zero gas price to check gas still charged.
     let outcome = runner.submit_transaction(&source_account.secret_key, mint_tx);
     let error = outcome.unwrap();
@@ -178,7 +178,7 @@ fn deploy_erc_20_out_of_gas() {
     let mut deploy_transaction = constructor.deploy("OutOfGas", "OOG", INITIAL_NONCE.into());
 
     // not enough gas to cover intrinsic cost
-    deploy_transaction.gas = (deploy_transaction
+    deploy_transaction.gas_limit = (deploy_transaction
         .intrinsic_gas(&evm::Config::istanbul())
         .unwrap()
         - 1)
@@ -189,7 +189,7 @@ fn deploy_erc_20_out_of_gas() {
     assert!(error_message.contains("ERR_INTRINSIC_GAS"));
 
     // not enough gas to complete transaction
-    deploy_transaction.gas = U256::from(3_200_000);
+    deploy_transaction.gas_limit = U256::from(3_200_000);
     let outcome = runner.submit_transaction(&source_account, deploy_transaction);
     let error = outcome.unwrap();
     assert_eq!(error.status, TransactionStatus::OutOfGas);
