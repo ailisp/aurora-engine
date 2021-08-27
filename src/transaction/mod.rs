@@ -24,17 +24,18 @@ impl TryFrom<&[u8]> for EthTransactionKind {
     #[cfg(feature = "london")]
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes[0] == eip_2930::TYPE_BYTE {
-            let access_list_tx = eip_2930::SignedTransaction2930::decode(&Rlp::new(&bytes[1..]))?;
-            Ok(Self::Eip2930(access_list_tx))
-        } else if bytes[0] == eip_1559::TYPE_BYTES {
+            let tx_eip_2930 = eip_2930::SignedTransaction2930::decode(&Rlp::new(&bytes[1..]))?;
+            Ok(Self::Eip2930(tx_eip_2930))
+        } else if bytes[0] == eip_1559::TYPE_BYTE {
             let tx_eip_1559 = eip_1559::SignedTransaction1559::decode(&Rlp::new(&bytes[1..]))?;
+            Ok(Self::Eip1559(tx_eip_1559))
         } else if bytes[0] <= 0x7f {
             Err(ParseTransactionError::UnknownTransactionType)
         } else if bytes[0] == 0xff {
             Err(ParseTransactionError::ReservedSentinel)
         } else {
-            let legacy = legacy::LegacyEthSignedTransaction::decode(&Rlp::new(bytes))?;
-            Ok(Self::Legacy(legacy))
+            let tx_legacy = legacy::LegacyEthSignedTransaction::decode(&Rlp::new(bytes))?;
+            Ok(Self::Legacy(tx_legacy))
         }
     }
 

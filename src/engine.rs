@@ -17,6 +17,7 @@ use crate::precompiles::Precompiles;
 use crate::prelude::{is_valid_account_id, Address, Cow, String, TryInto, Vec, H256, U256};
 use crate::sdk;
 use crate::storage::{address_to_key, bytes_to_key, storage_to_key, KeyPrefix, KeyPrefixU8};
+use crate::transaction::NormalizedEthTransaction;
 use crate::types::{u256_to_arr, AccountId, Wei, ERC20_MINT_SELECTOR};
 
 /// Used as the first byte in the concatenation of data used to compute the blockhash.
@@ -253,6 +254,13 @@ impl AsRef<[u8]> for EngineStateError {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct GasPaymentResult {
+    pub gas_used: Wei,
+    pub effective_gas_price: Wei,
+    pub priority_fee_per_gas: Wei,
+}
+
 /// Engine internal state, mostly configuration.
 /// Should not contain anything large or enumerable.
 #[derive(BorshSerialize, BorshDeserialize, Default)]
@@ -346,23 +354,56 @@ impl Engine {
         sdk::sha256(&data)
     }
 
-    pub fn charge_gas_limit(
+    #[cfg(feature = "london")]
+    pub fn charge_gas(
+        &self,
         sender: &Address,
-        gas_limit: U256,
-        gas_price: U256,
+        transaction: &NormalizedEthTransaction,
+    ) -> Result<GasPaymentResult, GasPaymentError> {
+        if transaction.max_fee_per_gas.is_zero() {
+            return Ok(GasPaymentResult::default());
+        }
+
+        let priority_fee_per_gas = transaction
+            .max_priority_fee_per_gas
+            .min(transaction.max_fee_per_gas - self.block_base_fee_per_gas());
+        let effective_gas_price = Wei::new(priority_fee_per_gas + self.block_base_fee_per_gas());
+        let gas_limit = Wei::new(transaction.gas_limit);
+        let gas_used = gas_limit
+            .checked_mul(effective_gas_price)
+            .ok_or(GasPaymentError::EthAmountOverflow)?;
+
+        let new_balance = Self::get_balance(sender)
+            .checked_sub(gas_used)
+            .ok_or(GasPaymentError::OutOfFund)?;
+
+        Self::set_balance(sender, &new_balance);
+
+        Ok(GasPaymentResult {
+            gas_used,
+            effective_gas_price,
+            priority_fee_per_gas: Wei::new(priority_fee_per_gas),
+        })
+    }
+
+    #[cfg(not(feature = "london"))]
+    pub fn charge_gas(
+        sender: &Address,
+        transaction: &NormalizedEthTransaction,
     ) -> Result<Wei, GasPaymentError> {
         // Early exit as performance optimization
-        if gas_price.is_zero() {
+        if transaction.gas_price.is_zero() {
             return Ok(Wei::zero());
         }
 
         let payment_for_gas = Wei::new(
-            gas_limit
-                .checked_mul(gas_price)
+            transaction
+                .gas_limit
+                .checked_mul(transaction.gas_price)
                 .ok_or(GasPaymentError::EthAmountOverflow)?,
         );
-        let account_balance = Self::get_balance(sender);
-        let remaining_balance = account_balance
+        let sender_balance = Self::get_balance(sender);
+        let remaining_balance = sender_balance
             .checked_sub(payment_for_gas)
             .ok_or(GasPaymentError::OutOfFund)?;
 
@@ -371,6 +412,24 @@ impl Engine {
         Ok(payment_for_gas)
     }
 
+    #[cfg(feature = "london")]
+    pub fn refund_unused_gas(
+        sender: &Address,
+        gas_limit: u64,
+        gas_result: GasPaymentResult,
+        relayer: &Address,
+    ) -> Result<(), GasPaymentError> {
+        let refund = Wei::new_u64(gas_limit)
+            .checked_sub(gas_result.gas_used)
+            .ok_or(GasPaymentError::EthAmountOverflow)?;
+
+        Self::add_balance(sender, refund * gas_result.effective_gas_price)?;
+        Self::add_balance(relayer, gas_result.priority_fee_per_gas)?;
+
+        Ok(())
+    }
+
+    #[cfg(not(feature = "london"))]
     pub fn refund_unused_gas(
         sender: &Address,
         relayer: &Address,
@@ -968,6 +1027,16 @@ impl evm::backend::Backend for Engine {
     /// See: https://doc.aurora.dev/develop/compat/evm#gaslimit
     fn block_gas_limit(&self) -> U256 {
         U256::max_value()
+    }
+
+    /// Returns the current base fee for the current block.
+    ///
+    /// Currently, this returns 0 as there is no concept of a base fee at this
+    /// time but this may change in the future.
+    ///
+    /// TODO: doc.aurora.dev link
+    fn block_base_fee_per_gas(&self) -> U256 {
+        U256::zero()
     }
 
     /// Returns the states chain ID.

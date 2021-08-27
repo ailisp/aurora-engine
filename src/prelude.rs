@@ -18,7 +18,7 @@ pub use core::{
     convert::TryInto,
     marker::PhantomData,
     mem,
-    ops::{Add, Sub},
+    ops::{Add, Mul, Sub},
 };
 #[cfg(feature = "std")]
 pub use std::{
@@ -35,7 +35,7 @@ pub use std::{
     fmt, format,
     marker::PhantomData,
     mem,
-    ops::{Add, Sub},
+    ops::{Add, Mul, Sub},
     str,
     string::String,
     string::ToString,
