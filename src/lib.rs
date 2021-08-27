@@ -32,7 +32,6 @@ pub mod sdk;
 
 #[cfg(test)]
 mod benches;
-mod state;
 #[cfg(test)]
 mod test_utils;
 #[cfg(test)]
@@ -76,7 +75,7 @@ pub unsafe fn on_alloc_error(_: core::alloc::Layout) -> ! {
 mod contract {
     use borsh::{BorshDeserialize, BorshSerialize};
 
-    use crate::connector::EthConnectorContract;
+    use crate::connector::{self, EthConnectorContract};
     use crate::engine::{Engine, EngineState, GasPaymentError};
     use crate::fungible_token::FungibleTokenMetadata;
     #[cfg(feature = "evm_bully")]
@@ -388,12 +387,13 @@ mod contract {
 
         let mut engine = Engine::new(predecessor_address()).sdk_unwrap();
 
+        let erc20_admin_address = connector::erc20_admin_address(&sdk::current_account_id());
         let erc20_contract = include_bytes!("../etc/eth-contracts/res/EvmErc20.bin");
         let deploy_args = ethabi::encode(&[
             ethabi::Token::String("Empty".to_string()),
             ethabi::Token::String("EMPTY".to_string()),
             ethabi::Token::Uint(ethabi::Uint::from(0)),
-            ethabi::Token::Address(current_address()),
+            ethabi::Token::Address(erc20_admin_address),
         ]);
 
         let address = match Engine::deploy_code_with_input(
@@ -426,8 +426,8 @@ mod contract {
     pub extern "C" fn view() {
         let args: ViewCallArgs = sdk::read_input_borsh().sdk_unwrap();
         let engine = Engine::new(Address::from_slice(&args.sender)).sdk_unwrap();
-        let result = Engine::view_with_args(&engine, args);
-        result.sdk_process()
+        let result = Engine::view_with_args(&engine, args).sdk_unwrap();
+        sdk::return_output(&result.try_to_vec().sdk_expect("ERR_SERIALIZE"));
     }
 
     #[no_mangle]
@@ -699,10 +699,6 @@ mod contract {
 
     fn predecessor_address() -> Address {
         near_account_to_evm_address(&sdk::predecessor_account_id())
-    }
-
-    pub fn current_address() -> Address {
-        near_account_to_evm_address(&sdk::current_account_id())
     }
 }
 
