@@ -71,7 +71,6 @@ impl<'a> OneShotAuroraRunner<'a> {
             &[],
             self.base.current_protocol_version,
             Some(&self.base.cache),
-            &self.base.profile,
         )
     }
 }
@@ -89,8 +88,8 @@ impl AuroraRunner {
         context.block_index += 1;
         context.block_timestamp += 100;
         context.input = input;
-        context.signer_account_id = caller_account_id.clone();
-        context.predecessor_account_id = caller_account_id;
+        context.signer_account_id = caller_account_id.clone().parse().unwrap();
+        context.predecessor_account_id = caller_account_id.parse().unwrap();
     }
 
     pub fn call(
@@ -111,7 +110,6 @@ impl AuroraRunner {
             &[],
             self.current_protocol_version,
             Some(&self.cache),
-            &self.profile,
         )
     }
 
@@ -213,7 +211,6 @@ impl AuroraRunner {
             &[],
             self.current_protocol_version,
             Some(&self.cache),
-            &self.profile,
         );
         assert!(maybe_error.is_none());
         let bytes = outcome.unwrap().return_data.as_value().unwrap();
@@ -231,10 +228,10 @@ impl Default for AuroraRunner {
             cache: Default::default(),
             ext: Default::default(),
             context: VMContext {
-                current_account_id: aurora_account_id.clone(),
-                signer_account_id: aurora_account_id.clone(),
+                current_account_id: aurora_account_id.clone().parse().unwrap(),
+                signer_account_id: aurora_account_id.clone().parse().unwrap(),
                 signer_account_pk: vec![],
-                predecessor_account_id: aurora_account_id,
+                predecessor_account_id: aurora_account_id.parse().unwrap(),
                 input: vec![],
                 block_index: 0,
                 block_timestamp: 0,
@@ -245,7 +242,7 @@ impl Default for AuroraRunner {
                 attached_deposit: 0,
                 prepaid_gas: 10u64.pow(18),
                 random_seed: vec![],
-                is_view: false,
+                view_config: None,
                 output_data_receivers: vec![],
             },
             wasm_config: Default::default(),
