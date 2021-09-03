@@ -56,6 +56,7 @@ ethabi = { git = "https://github.com/darwinia-network/ethabi", branch = "xavier-
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
 byte-slice-cast = { version = "1.0", default-features = false }
 rjson = { version = "0.3.1", default-features = false }
+serde_json = "1"
 
 [dev-dependencies]
 bstr = "0.2"
@@ -65,6 +66,7 @@ near-sdk-sim = { git = "https://github.com/near/near-sdk-rs", rev = "9d99077c6ac
 near-crypto = "0.1.0"
 near-vm-runner = { git = "https://github.com/near/nearcore", rev = "e0443ab1711ca1da15c571f3e99645e4466f1d66" }
 near-primitives-core = { git = "https://github.com/near/nearcore", rev = "e0443ab1711ca1da15c571f3e99645e4466f1d66" }
+near-primitives = { git = "https://github.com/near/nearcore", rev = "e0443ab1711ca1da15c571f3e99645e4466f1d66" }
 near-vm-logic = { git = "https://github.com/near/nearcore", rev = "e0443ab1711ca1da15c571f3e99645e4466f1d66" }
 libsecp256k1 = "0.3.5"
 rand = "0.7.3"

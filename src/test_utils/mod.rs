@@ -1,4 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use near_primitives::runtime::config::RuntimeConfig;
 use near_primitives_core::config::VMConfig;
 use near_primitives_core::contract::ContractCode;
 use near_primitives_core::profile::ProfileData;
@@ -221,6 +222,8 @@ impl AuroraRunner {
 impl Default for AuroraRunner {
     fn default() -> Self {
         let aurora_account_id = "aurora".to_string();
+        let s = std::fs::read_to_string("/home/bo/runtime_config.json").unwrap();
+        let r: RuntimeConfig = serde_json::from_str(&s).unwrap();
         Self {
             aurora_account_id: aurora_account_id.clone(),
             chain_id: 1313161556, // NEAR betanet
@@ -245,8 +248,8 @@ impl Default for AuroraRunner {
                 view_config: None,
                 output_data_receivers: vec![],
             },
-            wasm_config: Default::default(),
-            fees_config: Default::default(),
+            wasm_config: r.wasm_config.clone(),
+            fees_config: r.transaction_costs.clone(),
             current_protocol_version: u32::MAX,
             profile: Default::default(),
         }
